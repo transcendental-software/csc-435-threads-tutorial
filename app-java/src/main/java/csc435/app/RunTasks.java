@@ -54,28 +54,34 @@ public class RunTasks
             this.queue = queue;
         }
 
+        // Function that will be run by each worker thread
         @Override
         public void run() {
             int taskid;
             int rc;
             
+            // Run tasks until the worker thread reads a termination task
             while (true) {
                 taskid = 0;
-
+                
+                // Pop an element from the queue, if the queue has elements in it
                 queue.lock.lock();
                 if (queue.deque.size() >= 1) {
                     taskid = queue.deque.remove();
                 }
                 queue.lock.unlock();
                 
+                // If the queue was empty, then try again
                 if (taskid == 0) {
                     continue;
                 }
-
+                
+                // If the task is a terminate task, then finish worker thread execution
                 if (taskid == -1) {
                     break;
                 }
-
+                
+                // Run the task
                 rc = RunTasks.task();
 
                 System.out.println("Worker " + thread_id + " completed task " + taskid + " (" + rc + ")");
@@ -91,26 +97,31 @@ public class RunTasks
 
     public void run_tasks()
     {
+        // Create queue that will house the tasks and the mutex/lock
         Queue queue = new Queue();
         ArrayList<Thread> threads = new ArrayList<Thread>();
 
+        // Create the worker threads and assign a unique thread ID for each thread
         for (int i = 0; i < num_workers; i++) {
             threads.add(new Thread(new Worker(i + 1, queue)));
             threads.get(i).start();
         }
 
+        // Add the tasks to the queue
         for (int i = 0; i < num_tasks; i++) {
             queue.lock.lock();
             queue.deque.add(i + 1);
             queue.lock.unlock();
         }
-    
+        
+        // Add the termination tasks to the queue, equal in number to the worker threads
         for (int i = 0; i < num_workers; i++) {
             queue.lock.lock();
             queue.deque.add(-1);
             queue.lock.unlock();
         }
-    
+        
+        // Wait for all of the worker threads to fininsh executing
         for (int i = 0; i < num_workers; i++) {
             try {
                 threads.get(i).join();
